@@ -45,6 +45,12 @@ class DomainAPI(object):
         if 'commands' in init_dict:
             self._commands = [CommandAPI(cmd, domain=self) for cmd in init_dict['commands']]
 
+        for _cmd in self._commands:
+            if _cmd not in self.__dict__:
+                self.__dict__[_cmd.name] = _cmd
+            else:
+                    raise Exception("Overwriting something in classdict")
+
     def __repr__(self):
         return "<API Domain {api}>".format(api=self.name)
 
