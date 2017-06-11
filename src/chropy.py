@@ -27,13 +27,15 @@ class CommandAPI(object):
         self.name = init_dict['name']
         if 'description' in init_dict:
             self.description = init_dict['description']
+        else:
+            self.description = ""
         if 'parameters' in init_dict:
             self.parameters = [ParameterAPI(param) for param in init_dict['parameters']]
         if 'returns' in init_dict:
             self.returns = [ParameterAPI(retval) for retval in init_dict['returns']]
 
     def __repr__(self):
-        return "<Command {domain}::{api}>".format(api=self.name, domain=self._domain_name)
+        return "<Command {domain}::{api}{desc}>".format(api=self.name, domain=self._domain_name, desc=(" (" + self.description + ")") if self.description  else "")
 
 
 
