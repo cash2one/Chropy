@@ -1,3 +1,4 @@
+import pydoc
 import json
 import os
 
@@ -9,16 +10,20 @@ def get_browser_api_json(api_path=BROWSER_JSON_PATH):
 class ParameterAPI(object):
     UNKNOWN_TYPE = "UNKNOWN"
     def __init__(self, init_dict):
+        self._raw = init_dict
         self.name = init_dict['name']
         if 'type' in init_dict:
-            self.vtype = init_dict['type']
+            self.vtype = pydoc.locate(init_dict['type'])
+        elif '$ref' in init_dict:
+            self.vtype = "RefType-" + init_dict['$ref']
         else:
             self.vtype = ParameterAPI.UNKNOWN_TYPE
     def __repr__(self):
-        return "<Parameter {name} {typ}>".format(name=self.name, typ=self.vtype)
+        return "<Parameter {name} {typ}>".format(name=self.name, typ=str(self.vtype))
 
 class CommandAPI(object):
     def __init__(self, init_dict,domain=None):
+        self._raw = init_dict
         self.domain = domain
         if self.domain:
             self._domain_name = self.domain.name
@@ -41,6 +46,7 @@ class CommandAPI(object):
 
 class DomainAPI(object):
     def __init__(self, init_dict):
+        self._raw = init_dict
         self.name = init_dict['domain']
         if 'commands' in init_dict:
             self._commands = [CommandAPI(cmd, domain=self) for cmd in init_dict['commands']]
