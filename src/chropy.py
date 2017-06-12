@@ -73,6 +73,11 @@ class CommandAPI(object):
         return ["{pname}::{ptype} | {pdesc}".format(pname=p.name,ptype=str(p._vtype_strn), pdesc=p.description) for p in self.parameters]
 
 
+    def invoke(self, browser, **kwargs):
+        if not isinstance(browser, Chropy):
+            raise TypeError("Must provide a valid browser")
+
+
 # TODO: Impl. type discovery, register the types globally or maintain a dict of them or something in Chropy?
 class TypeAPI(object):
     def __init__(self, init_dict, domain):
@@ -168,6 +173,13 @@ class Chropy(object):
         for apiobj in self._api_objects.keys():
             self.domains.__dict__[apiobj] = self._api_objects[apiobj]
 
+    def _running(fn):
+        def wrapper(self, *args):
+            if not self._is_running():
+                raise Exception("Headless chrome is not running")
+            return fn(self, *args)
+        return wrapper
+
     def _is_running(self):
         if not self._proc or self._proc.poll():
             return False
@@ -194,11 +206,13 @@ class Chropy(object):
                 self._proc = None
                 raise Exception("Chrome headless launch seems to have failed")
 
-
-
+    @_running
     def get_tabs(self):
-        if not self._is_running():
-            raise Exception("Can't talk to a dead browser...")
+        #if not self._is_running():
+        #    raise Exception("Can't talk to a dead browser...")
         return json.loads(urllib2.urlopen(DEVTOOLS_JSON_HOME.format(PORT=self._port)).read())
 
-
+    @_running
+    def _send_ws(data, async=False):
+        """ Send data on the websocket, async don't wait for the response (we need to make sure the buffer is cleaned though, new ws for asyncs?)"""
+        pass
