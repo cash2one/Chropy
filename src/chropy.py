@@ -53,18 +53,57 @@ class CommandAPI(object):
     def __repr__(self):
         return "<Command {domain}::{api}{desc}>".format(api=self.name, domain=self._domain_name, desc=(" (" + self.description + ")") if self.description  else "")
 
+
 # TODO: Impl. type discovery, register the types globally or maintain a dict of them or something in Chropy?
 class TypeAPI(object):
     def __init__(self, init_dict, domain):
         self.domain = domain
+        if 'id' in init_dict:
+            self.name = init_dict['id']
+        else:
+            self.name = init_dict['name']
+        self._type = None
+        if '$ref' in init_dict:
+            self._type_ref = init_dict['$ref']
+            self._type_strn = self._type_ref
+        elif 'type' in init_dict:
+            self._type = TypeAPI.resolve_type(init_dict['type'])
+            self._type_strn = init_dict['type']
+            if init_dict['type'] == 'object':
+                self._properties = []
+                if 'properties' in init_dict:
+                    for prop in init_dict['properties']:
+                        self._properties.append(TypeAPI(prop, self.domain))
+        else:
+            raise Exception("I don't know what this is:\n" + init_dict)
+
+    def __repr__(self):
+        return "<TypeAPI {s}>".format(s=self.friendly_name)
+    @property
+    def friendly_name(self):
+        return self.domain + "." + self.name
+
+    @staticmethod
+    def resolve_type(type_strn):
+        if type_strn == 'number' or type_strn == 'integer':
+            return int
+        elif type_strn == 'string':
+            return str
+        elif type_strn == 'array':
+            return type([])
+        elif type_strn == 'boolean':
+            return bool
+        elif type_strn == 'object' or type_strn == 'any':
+            return object
+        raise Exception("Unrecognized type")
 
 class DomainAPI(object):
     def __init__(self, init_dict):
         self._raw = init_dict
         self.name = init_dict['domain']
 
-#       if 'types' in init_dict:
-#            self._types = [TypeAPI()]
+        if 'types' in init_dict:
+            self._types = [TypeAPI(t, self.name) for t in init_dict['types']]
         if 'commands' in init_dict:
             self._commands = [CommandAPI(cmd, domain=self) for cmd in init_dict['commands']]
 
@@ -76,6 +115,10 @@ class DomainAPI(object):
 
     def __repr__(self):
         return "<API Domain {api}>".format(api=self.name)
+
+    @property
+    def types(self):
+        return self._types
 
     @property
     def cmdlist(self):
