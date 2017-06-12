@@ -23,14 +23,21 @@ class ParameterAPI(object):
     def __init__(self, init_dict):
         self._raw = init_dict
         self.name = init_dict['name']
+        if 'description' in init_dict:
+            self.description = init_dict['description']
+        else:
+            self.description = ""
         if 'type' in init_dict:
-            self.vtype = pydoc.locate(init_dict['type'])
+            self.vtype = TypeAPI.resolve_type(init_dict['type'])
+            self._vtype_strn = init_dict['type']
         elif '$ref' in init_dict:
             self.vtype = "RefType-" + init_dict['$ref']
+            self._vtype_strn = init_dict['$ref']
         else:
             self.vtype = ParameterAPI.UNKNOWN_TYPE
+            self._vtype_strn = self.vtype
     def __repr__(self):
-        return "<Parameter {name} {typ}>".format(name=self.name, typ=str(self.vtype))
+        return "<Parameter {name} {typ}>".format(name=self.name, typ=self.vtype)
 
 class CommandAPI(object):
     def __init__(self, init_dict,domain=None):
@@ -45,13 +52,25 @@ class CommandAPI(object):
             self.description = init_dict['description']
         else:
             self.description = ""
+
         if 'parameters' in init_dict:
             self.parameters = [ParameterAPI(param) for param in init_dict['parameters']]
+
         if 'returns' in init_dict:
             self.returns = [ParameterAPI(retval) for retval in init_dict['returns']]
 
     def __repr__(self):
         return "<Command {domain}::{api}{desc}>".format(api=self.name, domain=self._domain_name, desc=(" (" + self.description + ")") if self.description  else "")
+
+    @property
+    def __doc__(self):
+        return self.description + '\n\n' + '\n'.join(self.get_param_desc())
+
+    def get_parameter_names(self):
+        return [p.name for p in self.parameters]
+
+    def get_param_desc(self):
+        return ["{pname}::{ptype} | {pdesc}".format(pname=p.name,ptype=str(p._vtype_strn), pdesc=p.description) for p in self.parameters]
 
 
 # TODO: Impl. type discovery, register the types globally or maintain a dict of them or something in Chropy?
@@ -79,9 +98,14 @@ class TypeAPI(object):
 
     def __repr__(self):
         return "<TypeAPI {s}>".format(s=self.friendly_name)
+
     @property
     def friendly_name(self):
         return self.domain + "." + self.name
+
+    @property
+    def friendly_type(self):
+        return self._type_strn
 
     @staticmethod
     def resolve_type(type_strn):
@@ -107,11 +131,13 @@ class DomainAPI(object):
         if 'commands' in init_dict:
             self._commands = [CommandAPI(cmd, domain=self) for cmd in init_dict['commands']]
 
+        self.commands = type('commands',(),{})()
         for _cmd in self._commands:
             if _cmd not in self.__dict__:
                 self.__dict__[_cmd.name] = _cmd
             else:
                     raise Exception("Overwriting something in classdict")
+
 
     def __repr__(self):
         return "<API Domain {api}>".format(api=self.name)
@@ -125,7 +151,7 @@ class DomainAPI(object):
         return self._commands
 
     @property
-    def commands(self):
+    def command_dict(self):
         return dict([(d.name, d) for d in self._commands])
 
 def build_api_objects():
@@ -138,10 +164,9 @@ class Chropy(object):
     def __init__(self):
         self._api_objects = build_api_objects()
         self._proc = None
-
-    @property
-    def domains(self):
-        return self._api_objects
+        self.domains = type('domains', (), {})()
+        for apiobj in self._api_objects.keys():
+            self.domains.__dict__[apiobj] = self._api_objects[apiobj]
 
     def _is_running(self):
         if not self._proc or self._proc.poll():
