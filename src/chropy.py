@@ -193,9 +193,25 @@ class Chropy(object):
 
         if 'linux' in sys.platform:
             if path:
-                return self._launch_chrome_headless_linux(port,path=path)
-            return self._launch_chrome_headless_linux(port)
-        raise Exception("Failed to launch chrome")
+                self._launch_chrome_headless_linux(port,path=path)
+            else:
+                self._launch_chrome_headless_linux(port)
+
+        else:
+            raise Exception("Failed to launch chrome")
+
+        self._ws = self._new_ws(self.get_first_tab()['webSocketDebuggerUrl'])
+
+    def _new_ws(self,ws_url):
+        con = WebSocketBaseClient(ws_url)
+        con.connect()
+        return con
+
+    def get_first_tab(self):
+        tabs = [t for t in self.get_tabs() if t['type'] == 'page']
+        if len(tabs) == 0:
+            raise Exception("Couldn't find tab, weird?")
+        return tabs[0]
 
     def _launch_chrome_headless_linux(self, port,path=CHROME_LINUX_PATH, skip_check=False):
         self._port = port
