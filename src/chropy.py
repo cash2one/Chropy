@@ -1,3 +1,4 @@
+import types
 import pydoc
 import json
 import os
@@ -6,7 +7,7 @@ import subprocess
 import urllib2
 import time
 import random
-
+from functools import partial
 from ws4py.client import WebSocketBaseClient
 
 BROWSER_JSON_PATH = os.sep.join(['..','proto','protocol.json'])
@@ -232,3 +233,35 @@ class Chropy(object):
     def _send_ws(data, async=False):
         """ Send data on the websocket, async don't wait for the response (we need to make sure the buffer is cleaned though, new ws for asyncs?)"""
         pass
+
+    def _create_function(self, c_api):
+        assert(isinstance(c_api, CommandAPI))
+        # Two args, Chropy and CommandAPI
+        y = Chropy._api_command_stub
+        y_code = types.CodeType(0,
+                       y.func_code.co_nlocals,
+                       y.func_code.co_stacksize,
+                       y.func_code.co_flags,
+                       y.func_code.co_code,
+                       y.func_code.co_consts,
+                       y.func_code.co_names,
+                       y.func_code.co_varnames,
+                       "<Dynamic Code From Outer Space>",
+                       str(c_api.name),
+                       y.func_code.co_firstlineno,
+                       y.func_code.co_lnotab)
+        y.func_globals['zc_api'] = c_api
+        y.func_globals['zchropy'] = self
+        fn = types.FunctionType(y_code, y.func_globals, str(c_api.name))
+        fn.func_doc = c_api.__doc__
+        return fn
+
+    @staticmethod
+    def _api_command_stub():
+        # This is one fucking ugly hack and i apologize in the name of humanity
+        # These globals are injected from the sky
+        cmd_api = zc_api
+        chropy = zchropy
+
+
+
